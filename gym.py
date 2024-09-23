@@ -3,26 +3,33 @@ import numpy as np
 from raylib import ffi, rl, colors
 
 # window values
-WINDOW_WIDTH = 1080
-WINDOW_HEIGHT = 900
+WINDOW_FRACTION: int = 80
+WINDOW_WIDTH   : int = 16 * WINDOW_FRACTION
+WINDOW_HEIGHT  : int = 9 * WINDOW_FRACTION
 
 # maximum number of neurons to show in gym figure
 MAX_NEURONS = 25
 
+# thickness of line connecting two neurons
+LINE_THICKNESS : float = 2.0
+
+# radius of neurons cap
+MAX_RADIUS_NEURONS: int = 10
+
 def init_render() -> None:
-    rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, b"NN")
+    rl.InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, b"Neural network")
     rl.SetTargetFPS(60)
 
 def close_render() -> None:
     rl.CloseWindow()
 
 def render_fcn(model, step, loss, acc) -> None:
-
-    low_color = colors.RED
-    high_color = colors.DARKBLUE
-
     rl.BeginDrawing()
     rl.ClearBackground(colors.BLACK)
+    
+    # ramp up neuron colors
+    low_color = colors.RED
+    high_color = colors.DARKBLUE
 	
     # padding on window borders
     hpad, vpad = int(WINDOW_WIDTH*0.1), int(WINDOW_HEIGHT*0.1)  # 10% of padding
@@ -36,9 +43,10 @@ def render_fcn(model, step, loss, acc) -> None:
     # loop over each layer of the architecture
     for i in range(len(model.nn)):
         nn_layer = model.nn[i]
-        # grab number of neurons pero layer
+        # grab number of neurons per layer
         layer_neurons = nn_layer.weight.shape[1]
         next_layer_neurons = nn_layer.weight.shape[0]
+        # cap out on max number of neurons
         if layer_neurons > MAX_NEURONS: layer_neurons = MAX_NEURONS
         if next_layer_neurons > MAX_NEURONS: next_layer_neurons = MAX_NEURONS
 
@@ -56,19 +64,19 @@ def render_fcn(model, step, loss, acc) -> None:
             x1 = hpad + layer_xcenter + i*layer_width
             y1 = vpad + layer_ycenter + j*layer_height
 
-            # iterate over next layer to draw line: DrawLine(startPosX, startPosY, endPosX, endPosY, color)
+            # iterate over next layer to draw lines from current neuron to next layer neurons
             for k in range(next_layer_neurons):
                 # position of target neuron
                 x2 = hpad + layer_xcenter + (i+1)*layer_width
                 y2 = vpad + next_layer_ycenter + k*next_layer_height
                 # weight between neuron-j of layer-i and neuron-k of layer-(i+1)
-                w_kj = _sigmoid(nn_layer.weight.numpy()[k,j])
+                w_kj = _sigmoid(nn_layer.weight.numpy()[k,j])  # 0 <= w_kj <= 1
                 high_color = list(high_color)
                 high_color[-1] = int(255 * w_kj)
-                rl.DrawLineEx([int(x1), int(y1)], [int(x2), int(y2)], 5, rl.ColorAlphaBlend(low_color, high_color, colors.WHITE))
+                rl.DrawLineEx([int(x1), int(y1)], [int(x2), int(y2)], LINE_THICKNESS, rl.ColorAlphaBlend(low_color, high_color, colors.WHITE))
 
             # draw neurons of layer
-            neuron_radius = 10 + MAX_NEURONS / layer_neurons
+            neuron_radius = MAX_RADIUS_NEURONS + MAX_NEURONS / layer_neurons
             if i == 0:
                 rl.DrawCircle(int(x1), int(y1), neuron_radius, colors.DARKBLUE)
             else:
@@ -78,7 +86,7 @@ def render_fcn(model, step, loss, acc) -> None:
                 rl.DrawCircle(int(x1), int(y1), neuron_radius, rl.ColorAlphaBlend(low_color, high_color, colors.WHITE))
 
         # this is the last layer so manually include the output layer
-        next_neuron_radius = 10 + MAX_NEURONS / next_layer_neurons
+        next_neuron_radius = MAX_RADIUS_NEURONS + MAX_NEURONS / next_layer_neurons
         if i+1 == len(model.nn):
             output_neurons = nn_layer.weight.shape[0]
             last_layer_height = nn_height / output_neurons
