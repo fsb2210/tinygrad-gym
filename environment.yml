@@ -1,0 +1,12 @@
+name: tinygrad-gym
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python =3.12
+  - pip
+  - numpy
+
+  - pip:
+    - -r requirements.txt
